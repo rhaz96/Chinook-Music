@@ -1,3 +1,13 @@
+---
+title: "Chinook Business Analysis"
+author: "Robert Hazell"
+date: "3/24/2019"
+output:
+  html_document:
+    keep_md: yes
+  pdf_document: default
+---
+
 ## Getting Started
 
 
@@ -16,10 +26,9 @@ Make a connection between the database and R.
 
 
 ```r
-working_dir<- "/Users/roberthazell/Desktop/Dataquest/Chinook"
+working_dir <- "/Users/roberthazell/Desktop/Dataquest/Chinook"
 setwd(working_dir)
-con <- DBI::dbConnect(RSQLite::SQLite(), 
-                      dbname = paste(c(working_dir, "/chinook.db"), collapse = ''))
+con <- DBI::dbConnect(RSQLite::SQLite(), dbname = paste(c(working_dir, "/chinook.db"), collapse = ''))
 ```
 
 Take a look at the tables.
@@ -313,7 +322,6 @@ chinook_by_country <- country_summary %>%
   mutate(`Percent Sales` = 
            round(`Total Sales`/sum(`Total Sales`) * 100, 2),
          `Percent Customers` = round(`Total Customers`/sum(`Total Customers`)*100, 2)) %>%
-  #arrange(desc(`Total Customers`))%>%
   as.data.frame() 
 
 chinook_by_country %>%
@@ -434,7 +442,100 @@ Management are currently considering changing their purchasing strategy to save 
 
 We have been asked to find out what percentage of purchases are individual tracks vs whole albums, so that management can use this data to understand the effect this decision might have on overall revenue.
 
+To solve this, we need to identify whether each invoice has all the tracks from an album. To do that we need to find the number of tracks in each album and compare that value to the number of tracks that were purchased.
 
+#### Step 1: Find the corresponding ```album_id``` for each track purchased in the ```invoice_line``` table.
+
+
+```r
+# get corresponding album_id for each track in the invoice
+invl_tr <- invoice_line_db %>% 
+  inner_join(track_db, by = 'track_id', 
+             suffix = c('_inv', '_track')) %>%
+  select("invoice_id":"quantity", "album_id")
+```
+
+#### Step 2: Find the number of tracks in each album.
+
+
+```r
+# number of tracks in each album
+alb_trk <- track_db %>% 
+  group_by(album_id) %>% 
+  summarise(n_tracks = length(album_id))
+```
+
+#### Step 3: Find the number of tracks purchased from each album.
+
+
+```r
+#  find the number of tracks purchased from each album in the invoice
+tracks_purchased <- invl_tr %>% 
+  group_by(invoice_id, album_id) %>% 
+  summarise(n_tracks = length(album_id)) %>%
+  arrange(album_id)
+```
+
+#### Step 4: Compare the number of tracks in each album from Step 2 to the number of tracks purchased for each album from Step 3.
+
+
+```r
+# purchases containing fewer tracks than the album
+single_tracks <- tracks_purchased %>% 
+  anti_join(alb_trk, by = c("album_id", 'n_tracks'))
+
+length(unique(single_tracks$invoice_id))
+```
+
+```
+[1] 500
+```
+
+```r
+# purchases containing all tracks from the album
+album_purchase <- tracks_purchased %>%
+  semi_join(alb_trk, by = c("album_id", 'n_tracks'))
+
+length(unique(album_purchase$invoice_id))
+```
+
+```
+[1] 200
+```
+
+So there are 500 singles and 200 album purchases.  But wait, how can that be?  There are only 614 unique ```invoice_id```s.  
+
+
+```r
+length(unique(invoice_line_db$invoice_id))
+```
+
+```
+[1] 614
+```
+
+The reason is that some people purchased *both* albums and singles.  This is true since there are duplicate ```invoice_id```s for each purchase category
+
+
+```r
+# get the invoice_if for each category
+single_purchases <- unique(single_tracks$invoice_id)
+album_purchases <- unique(album_purchase$invoice_id)
+
+# check for duplicates
+intersect(single_purchases, album_purchases)
+```
+
+```
+ [1]  67 421 423 462 548 579  97 210 565 586  78 121 270 311 324 345 415
+[18] 434 509 517 527 577   7  94 111 137 306 597  20 168 195 242 272 288
+[35] 101 260 486  91 265 285  38  41 384 467 365  39  59 134 275 437 445
+[52] 250 450 216 106 227 369 405 452  11  37   4 395  15 190 218 164 176
+[69] 368 428 103 316 441  87 127 198 402 180  27 313 256 424 338 325 189
+[86] 360
+```
+
+There are 86 customers who purchased both albums and singles.  This means 500-86 = 414 people made singles-only purchases and 200-86 = 114 made album-only purchases.  Since album-only purchases comprise just 18.6% of customers, I would recommend against purchasing only select tracks from albums from record companies, since there is potential to lose nearly one fifth of revenue.
 
 
 
