@@ -1,13 +1,3 @@
----
-title: "Chinook Business Analysis"
-author: "Robert Hazell"
-date: "3/24/2019"
-output:
-  html_document:
-    keep_md: yes
-  pdf_document: default
----
-
 ## Getting Started
 
 
