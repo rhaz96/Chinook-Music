@@ -8,8 +8,7 @@ Chinook is a (contrived) music store (but based on real data) that is similar to
 contains information on customer purchases, songs, and albums.  You can read more about Chinook at 
 [this](https://github.com/lerocha/chinook-database) repository, which is also where the data originates.   
 
-The objective is to answer business questions pertaining to Chinook's investment strategy and music offerings. This analysis 
-is still a work-in-progress and will be expanded further.
+The objective is to answer business questions pertaining to Chinook's investment strategy and music offerings.
 
 ## Getting Started
 
