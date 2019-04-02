@@ -432,7 +432,17 @@ Management are currently considering changing their purchasing strategy to save 
 
 We have been asked to find out what percentage of purchases are individual tracks vs whole albums, so that management can use this data to understand the effect this decision might have on overall revenue.
 
-To solve this, we need to identify whether each invoice has all the tracks from an album. To do that we need to find the number of tracks in each album and compare that value to the number of tracks that were purchased.
+There are certain 'edge cases' that should be rectified up-front.  Two to consider are these:
+
+* Albums that have only one or two tracks are likely to be purchased by customers as part of a collection of individual tracks.
+
+* Customers may decide to manually select every track from an album, and then add a few individual tracks from other albums to their purchase.
+
+In the first case, since our analysis is concerned with maximizing revenue we can safely ignore albums consisting of only a few tracks. The company has previously done analysis to confirm that the second case does not happen often, so we can ignore this case also.
+
+Edge-case crises averted.
+
+To solve the question at hand, we need to identify whether each invoice has all the tracks from an album. To do that we need to find the number of tracks in each album and compare that value to the number of tracks that were purchased.
 
 #### Step 1: Find the corresponding ```album_id``` for each track purchased in the ```invoice_line``` table.
 
@@ -474,60 +484,23 @@ tracks_purchased <- invl_tr %>%
 single_tracks <- tracks_purchased %>% 
   anti_join(alb_trk, by = c("album_id", 'n_tracks'))
 
-length(unique(single_tracks$invoice_id))
+total_orders <- length(unique(invoice_line_db$invoice_id))
+singles_orders <- length(unique(single_tracks$invoice_id))
+albums_orders <- total_orders - singles_orders
+
+paste(c("Single Purchases: ", singles_orders), collapse = "")
 ```
 
 ```
-[1] 500
+[1] "Single Purchases: 500"
 ```
 
 ```r
-# purchases containing all tracks from the album
-album_purchase <- tracks_purchased %>%
-  semi_join(alb_trk, by = c("album_id", 'n_tracks'))
-
-length(unique(album_purchase$invoice_id))
+paste(c("Album Purchases: ", albums_orders), collapse = "")
 ```
 
 ```
-[1] 200
+[1] "Album Purchases: 114"
 ```
 
-So there are 500 singles and 200 album purchases.  But wait, how can that be?  There are only 614 unique ```invoice_id```s.  
-
-
-```r
-length(unique(invoice_line_db$invoice_id))
-```
-
-```
-[1] 614
-```
-
-The reason is that some people purchased *both* albums and singles.  This is true since there are duplicate ```invoice_id```s for each purchase category
-
-
-```r
-# get the invoice_if for each category
-single_purchases <- unique(single_tracks$invoice_id)
-album_purchases <- unique(album_purchase$invoice_id)
-
-# check for duplicates
-intersect(single_purchases, album_purchases)
-```
-
-```
- [1]  67 421 423 462 548 579  97 210 565 586  78 121 270 311 324 345 415
-[18] 434 509 517 527 577   7  94 111 137 306 597  20 168 195 242 272 288
-[35] 101 260 486  91 265 285  38  41 384 467 365  39  59 134 275 437 445
-[52] 250 450 216 106 227 369 405 452  11  37   4 395  15 190 218 164 176
-[69] 368 428 103 316 441  87 127 198 402 180  27 313 256 424 338 325 189
-[86] 360
-```
-
-There are 86 customers who purchased both albums and singles.  This means 500-86 = 414 people made singles-only purchases and 200-86 = 114 made album-only purchases.  Since album-only purchases comprise just 18.6% of customers, I would recommend against purchasing only select tracks from albums from record companies, since there is potential to lose nearly one fifth of revenue.
-
-
-
-
-
+So there are 500 singles and 114 album purchases. Since album-only purchases comprise just 18.6% of customers, I would recommend against purchasing only select tracks from albums from record companies, since there is potential to lose nearly one fifth of revenue.
